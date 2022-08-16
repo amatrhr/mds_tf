@@ -77,7 +77,7 @@ class MDSModel(Model):
 
     def call(self, x):
         #nb we are throwing away x here 
-        x = Multiply()([self.new_config, self.config])
+        x = Multiply()([x, self.config])
         x = self.distance(x)
         x = self.d1(x)
         x = self.d2(x)

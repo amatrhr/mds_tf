@@ -72,15 +72,17 @@ class MDSModel(Model):
         self.number_obs = self.config.shape[0]
         self.number_dists = (self.number_obs**2 - self.number_obs)//2
         self.distance = PDistLayer()
-        self.d1 = Dense(128, activation='relu', kernel_constraint=NonNeg())
-        self.d2 = Dense(self.number_dists, activation='relu', kernel_constraint=NonNeg())
+        self.d1 = Dense(128, activation='relu', kernel_constraint=NonNeg(),use_bias=False)
+        self.d2 = Dense(self.number_dists, activation='relu', kernel_constraint=NonNeg(),use_bias=False)
+        
 
     def call(self, x):
         #nb we are throwing away x here 
-        x = Multiply()([x, self.config])
+        x = Multiply()([self.new_config, self.config])
         x = self.distance(x)
-        x = self.d1(x)
+        # x = self.d1(x)
         x = self.d2(x)
+        x = tf.math.divide_no_nan((x - tf.math.minimum(x)),(tf.math.maximum(x) - tf.math.minimum(x)))
         return x
 
 @tf.function

@@ -132,6 +132,12 @@ def stabilize_block(new_partition, active_index):
     return new_partition
 
 class MonoReg:
+    """
+    Class implementing _a version of_ the alternating blocks 
+    method of monotone regression; each block grows by agglomeration
+    to avoid non-monotonicity
+    #TODO: tests!
+    """
     def __init__(self, pred_dis, true_dis, verbose=True):
 #         breakpoint()
         self.pred_dis = np.array(pred_dis)
@@ -186,6 +192,7 @@ class MonoReg:
         return self.pred_dis_out
    
 def my_mds_training_loop(dissimilarities, n_init, eps):
+    n_samples = int(1/2 + np.sqrt(2*len(dissimilarities) +1/4))
     combi_config = np.zeros_like(generate_starting_configuration(dissimilarities, n_samples) )
     for test in range(n_init):
         start_config = generate_starting_configuration(dissimilarities, n_samples) 

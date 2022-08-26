@@ -3,8 +3,9 @@ from autograd import grad
 from loguru import logger 
 import matplotlib.pyplot as plt
 from copy import deepcopy
-from data_cleaning import generate_starting_configuration
+from src.data_cleaning import generate_starting_configuration
 from autograd import elementwise_grad  
+import itertools as it 
 
 ## TODO move to matrix_utils.py 
 ## MAYBE rewrite in pure tensorflow
@@ -81,16 +82,18 @@ def check_satisfied(partition, index, direction):
             return True
     return False
 
-def merge_blocks(old_partition, index, direction):
+def merge_blocks(old_partition, index, direction, verbose=False):
     partition = deepcopy(old_partition)
     if direction == 'up':
         assert index + 1 < len(partition)
         partition[index:index+2] = [partition[index] + partition[index+1]]
-        logger.info("merged up")
+        if verbose:
+            logger.info("merged up")
     elif direction == 'down':
         assert index - 1 > -1
         partition[index-1:index+1] = [partition[index] + partition[index-1]]
-        logger.info("merged down")
+        if verbose:
+            logger.info("merged down")
     else:
         raise Exception('no direction')
 #     logger.info(f"returning partition: {partition}")
@@ -100,11 +103,11 @@ def eval_direction_expand(partition, active_index, direction):
     next_direction = "up" if direction == "down" else "down"
     indx_chg = 0
     satisfied = check_satisfied(partition, active_index, direction)
-    logger.info(f"currently {satisfied}ly {direction}-satisfied")
+    # logger.info(f"currently {satisfied}ly {direction}-satisfied")
     new_partition = deepcopy(partition)
     if not satisfied:
         indx_chg = -1 if direction == "down" else 0 
-        logger.info(f"merging {direction} at index {active_index} of partition {new_partition}")
+        # logger.info(f"merging {direction} at index {active_index} of partition {new_partition}")
         new_partition = merge_blocks(new_partition, active_index, direction)
     
     return new_partition, next_direction, satisfied, indx_chg
@@ -118,16 +121,16 @@ def stabilize_block(new_partition, active_index):
     indx_chg = 0 
     while (not directional_holder["up"]) or (not directional_holder["down"]):
         # check up-satisfied 
-        logger.info(directional_holder)
+        # logger.info(directional_holder)
         old_direction = direction
         old_partition = new_partition
         new_partition, direction, is_satisfied, indx_chg = eval_direction_expand(old_partition, active_index, old_direction)
         directional_holder[old_direction] = is_satisfied
         if not np.array_equal(old_partition, new_partition):
-            logger.info("Partition Change!")
+            # logger.info("Partition Change!")
             directional_holder[old_direction] = False
         active_index += indx_chg
-        logger.info (f"at end of iteration {iterat}, {directional_holder} on partition{new_partition}; active_index {active_index}")
+        # logger.info (f"at end of iteration {iterat}, {directional_holder} on partition{new_partition}; active_index {active_index}")
         iterat += 1
     return new_partition
 
@@ -174,7 +177,7 @@ class MonoReg:
                 break
             # 
         self.apply_mean()
-        logger.info(f"FIRST DIFFS:\n{self.first_diffs}" )
+        # logger.info(f"FIRST DIFFS:\n{self.first_diffs}" )
         while any([x < 0 for x in self.first_diffs]):
             for block  in range(len(self.partition)):
                 new_partition = deepcopy(self.partition)
@@ -230,5 +233,5 @@ def my_mds_training_loop(dissimilarities, n_init, eps):
             stress_vec.append(iter_stress)
             iteration += 1
             start_grad = stress_grad
-        combi_config += 0.1*np.nan_to_num(loop_config)
+        combi_config += 1./n_init * np.nan_to_num(loop_config)
     return combi_config

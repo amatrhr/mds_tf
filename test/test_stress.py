@@ -1,0 +1,1 @@
+# test 1: n points in n-1 dimensions

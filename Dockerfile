@@ -5,7 +5,7 @@ FROM tensorflow/tensorflow:nightly-jupyter
 
 WORKDIR /home/mdsuser
 
-RUN pip3 install pandas scipy networkx autograd loguru sklearn openpyxl jupyterlab pytest 
+RUN pip3 install pandas scipy networkx autograd loguru sklearn openpyxl jupyterlab pytest matplotlib
 # RUN useradd -r -g users mdsuser -d /home/mdsuser
 
 # USER mdsuser

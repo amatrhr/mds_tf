@@ -6,6 +6,15 @@ authors = ["claurin"]
 
 [tool.poetry.dependencies]
 python = "3.8.10"
+pandas = "*"
+scipy = "*"
+networkx = "*"
+autograd = "*"
+loguru = "*"
+sklearn = "*"
+openpyxl = "*"
+jupyterlab = "*"
+pytest = "*"
 
 [tool.poetry.dev-dependencies]
 

@@ -253,14 +253,14 @@ def my_mds_training_loop(ref_dissimilarities, dim, n_init, eps):
             iteration += 1
             start_grad = stress_grad
             fig, ax = plt.subplots( figsize=(16,21))
-            ax.step(mpwds, dissimilarities)
+            ax.scatter(mpwds, dissimilarities)
             plt.show()
             plt.close()
         configs.append(loop_config)
         stresses.append(old_stress)
         combi_config += 1./old_stress * np.nan_to_num(loop_config)
         fig, ax = plt.subplots( figsize=(16,9))
-        ax.step(list(range(iteration)), y=stress_vec)
+        ax.scatter(list(range(iteration)), y=stress_vec)
         ax.set_title("STRESS")
         plt.show()
         plt.close()

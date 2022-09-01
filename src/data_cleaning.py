@@ -29,7 +29,7 @@ def generate_starting_configuration(dis_vec, n_points, dim=2, random=True):
         starting_config = np.random.uniform(size=(n_points, dim))
     else:
         starting_config = np.stack([np.diag(j*np.ones(dim)) for j in range(1,max_multiplier)])
-    config_out = np.reshape(starting_config[:n_points,:],(-1,2))
+    config_out = np.reshape(starting_config[:n_points,:],(-1,dim))
     config_out /= np.linalg.norm(config_out)
     return config_out
      

@@ -1,3 +1,4 @@
+from webbrowser import get
 import autograd.numpy as np
 from autograd import grad
 from loguru import logger 
@@ -5,6 +6,7 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 from src.data_cleaning import generate_starting_configuration
 from autograd import elementwise_grad  
+import sys
 import itertools as it 
 
 ## TODO move to matrix_utils.py 
@@ -48,9 +50,9 @@ def get_pairwise_distances(configuration):
 
 def stress(y_true, y_pred):
     Sstar = np.sum((y_true - y_pred)**2,axis=-1)
-    print(f"Sstar: {Sstar}")
+    logger.info(f"Sstar: {Sstar}")
     Tstar = np.sum(y_true**2,axis=-1)
-    print(f"Tstar: {Tstar}")
+    logger.info(f"Tstar: {Tstar}")
     S = np.sqrt(np.divide(Sstar,Tstar))
     return S  # Note the `axis=-1`
 
@@ -159,11 +161,11 @@ class MonoReg:
         self.pred_dis_out = [[np.mean(y) for z in y] for y in self.partition]
         self.pred_dis_out = [*it.chain.from_iterable([[np.mean(y) for z in y] for y in self.pred_dis_out])]
 #         breakpoint()
-        plt.scatter(self.pred_dis_out, self.true_dis)
-        plt.show()
-        plt.close()
-        logger.info("PRED_DIS_OUT:")
-        logger.info(self.pred_dis_out)
+        # plt.scatter(self.pred_dis_out, self.true_dis)
+        # plt.show()
+        # plt.close()
+        # logger.info("PRED_DIS_OUT:")
+        # logger.info(self.pred_dis_out)
         self.first_diffs = [self.pred_dis_out[1:][x] - self.pred_dis_out[:-1][x] for x in range(len(self.pred_dis_out) - 1)]
         return
         
@@ -188,17 +190,20 @@ class MonoReg:
             self.apply_mean()
             
         self.pred_dis_out = [self.pred_dis_out[x] for x in self.unsort]
-        plt.scatter(self.pred_dis_out, self.true_dis[self.unsort])
-        plt.show()
-        plt.close()
-        logger.info(f"FIRST DIFFS:\n{self.first_diffs}" )
-        return self.pred_dis_out
+        
+        # logger.info(f"FIRST DIFFS:\n{self.first_diffs}" )
+        stress_out = stress(y_pred=self.pred_dis_out, y_true=self.true_dis[self.unsort])
+        return self.pred_dis_out, stress_out
    
-def my_mds_training_loop(dissimilarities, n_init, eps):
+def my_mds_training_loop(ref_dissimilarities, dim, n_init, eps):
+    dissimilarities = ref_dissimilarities/np.linalg.norm(ref_dissimilarities)
     n_samples = int(1/2 + np.sqrt(2*len(dissimilarities) +1/4))
-    combi_config = np.zeros_like(generate_starting_configuration(dissimilarities, n_samples) )
+    
+    combi_config = np.zeros_like(generate_starting_configuration(dissimilarities, n_samples, dim=dim) )
+    configs = []
+    stresses = []
     for test in range(n_init):
-        start_config = generate_starting_configuration(dissimilarities, n_samples) 
+        start_config = generate_starting_configuration(dissimilarities, n_samples, dim=dim) 
         def get_stress_for_real_true(config):
             return stress(dissimilarities, get_pairwise_distances(config))
 
@@ -208,30 +213,57 @@ def my_mds_training_loop(dissimilarities, n_init, eps):
         diff = 1e3 
         alpha = 0.8
         loop_config = deepcopy(start_config)
-        start_grad = np.ravel(start_config)
-        start_grad /= np.linalg.norm(start_grad)
-        old_stress = 1
+        old_stress = get_stress_for_real_true(loop_config)
+        logger.info(f"Starting Stress: {old_stress}")
+        start_grad = gradiente(loop_config)
+        grad_mag = np.linalg.norm(start_grad)
+        logger.info(f"Starting Gradient magnitude: {grad_mag}")
+        start_grad /= np.linalg.norm(grad_mag)
+        
+        
+        fig, ax = plt.subplots( figsize=(16,21))
+        ax.scatter(get_pairwise_distances(loop_config), dissimilarities)
+        ax.set_title("STARTING Scatter Diagram")
+        plt.show()
+        plt.close()
         iteration = 0
         stress_vec = []
-        while diff > eps:
+        
+        while (diff > eps):
             pwds = get_pairwise_distances(loop_config)
-
+            pwds /= np.linalg.norm(pwds)
             # monotone regression
-            mpwds = MonoReg(pred_dis = pwds, true_dis = dissimilarities).run_monoreg()
+            mpwds, iter_stress = MonoReg(pred_dis = pwds, true_dis = dissimilarities).run_monoreg()
             # end monotone regression
-            iter_stress = stress(dissimilarities, mpwds)
-            print(f"stress: {iter_stress}")
+            logger.info(f"stress: {iter_stress}")
             stress_grad = gradiente(loop_config)
+            
             grad_mag = np.linalg.norm(stress_grad)
+            if grad_mag < 1e-1 or grad_mag > np.prod(stress_grad.shape)*1000:
+                break
+            logger.info(f"Gradient magnitude: {grad_mag}")
             af = angle_factor(start_grad,stress_grad)
             good_luck = min(1, iter_stress/old_stress)
             five_iter = 1 if iteration < 5 else min(1, iter_stress/stress_vec[iteration-5])
             alpha = af*good_luck*five_iter
-            loop_config += -1.*alpha*stress_grad*(1./grad_mag)
-            diff = abs(old_stress - iter_stress)
+            loop_config += 1.*alpha*stress_grad*(1./grad_mag)
+            diff = old_stress - iter_stress
             old_stress = iter_stress
             stress_vec.append(iter_stress)
             iteration += 1
             start_grad = stress_grad
-        combi_config += 1./n_init * np.nan_to_num(loop_config)
+            fig, ax = plt.subplots( figsize=(16,21))
+            ax.step(mpwds, dissimilarities)
+            plt.show()
+            plt.close()
+        configs.append(loop_config)
+        stresses.append(old_stress)
+        combi_config += 1./old_stress * np.nan_to_num(loop_config)
+        fig, ax = plt.subplots( figsize=(16,9))
+        ax.step(list(range(iteration)), y=stress_vec)
+        ax.set_title("STRESS")
+        plt.show()
+        plt.close()
+    # combi_config =
+    combi_config /= np.linalg.norm(combi_config)
     return combi_config

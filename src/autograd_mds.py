@@ -5,7 +5,7 @@ from loguru import logger
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from src.data_cleaning import generate_starting_configuration
-from autograd import elementwise_grad  
+from autograd import jacobian  
 import sys
 import itertools as it 
 
@@ -207,7 +207,7 @@ def my_mds_training_loop(ref_dissimilarities, dim, n_init, eps):
         def get_stress_for_real_true(config):
             return stress(dissimilarities, get_pairwise_distances(config))
 
-        gradiente = elementwise_grad(get_stress_for_real_true)
+        gradiente = jacobian(get_stress_for_real_true)
         # training loop
         old_stress = 1e6
         diff = 1e3 
@@ -219,7 +219,7 @@ def my_mds_training_loop(ref_dissimilarities, dim, n_init, eps):
         grad_mag = np.linalg.norm(start_grad)
         logger.info(f"Starting Gradient magnitude: {grad_mag}")
         start_grad /= np.linalg.norm(grad_mag)
-        
+        start_grad = np.sum(start_grad, axis=0)
         
         fig, ax = plt.subplots( figsize=(16,21))
         ax.scatter(get_pairwise_distances(loop_config), dissimilarities)
@@ -239,6 +239,7 @@ def my_mds_training_loop(ref_dissimilarities, dim, n_init, eps):
             stress_grad = gradiente(loop_config)
             
             grad_mag = np.linalg.norm(stress_grad)
+            stress_grad = np.sum(stress_grad, axis=0)
             if grad_mag < 1e-1 or grad_mag > np.prod(stress_grad.shape)*1000:
                 break
             logger.info(f"Gradient magnitude: {grad_mag}")
